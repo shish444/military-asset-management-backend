@@ -1,14 +1,19 @@
-# Use OpenJDK 21 as base image
-FROM openjdk:21-jdk-slim
-
-# Set working directory
+# Build stage
+FROM maven:3.8.7-eclipse-temurin-21 AS builder
 WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline
+COPY src ./src
+RUN mvn clean package -DskipTests
 
-# Copy the built jar into the image (update the filename if needed)
-COPY target/*.jar app.jar
+# Runtime stage
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
 
-# Expose the port (Render sets this dynamically)
-EXPOSE 8080
+# Environment variables
+ENV PORT=8080
+ENV SPRING_PROFILES_ACTIVE=prod
+EXPOSE $PORT
 
-# Run the application
-CMD ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "-Dserver.port=${PORT}", "app.jar"]
